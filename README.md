@@ -29,3 +29,15 @@
 执行 `build.sh` 前，会设置 PATH 环境变量，以便执行 node、gulp 和 php 等命令。
 
 `build.sh` 脚本需把生成后的文件，放到创建项目时指定的目标目录中，工具会把这个目录中的文件以 rsync 方式部署到目标服务器中。
+
+### vue-cli 项目 build.sh 示例
+
+```bash
+if [[ $1 = "clean" ]]; then
+  echo "=== 安装依赖并清理 ==="
+
+  npm ci --registry=https://registry.npmmirror.com
+fi
+
+npm run build
+```
