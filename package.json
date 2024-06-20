@@ -13,17 +13,17 @@
   },
   "license": "MIT",
   "dependencies": {
-    "chalk": "^2.4.1",
+    "chalk": "^2.4.2",
     "inquirer": "^5.2.0",
-    "lodash": "^4.17.10",
-    "shelljs": "^0.8.1",
-    "yargs": "^11.0.0"
+    "lodash": "^4.17.21",
+    "shelljs": "^0.8.5",
+    "yargs": "^11.1.1"
   },
   "bin": {
     "deployer": "index.js"
   },
   "devDependencies": {
-    "babel-eslint": "^8.2.3",
+    "babel-eslint": "^8.2.6",
     "eslint": "^4.19.1"
   }
 }
