@@ -118,6 +118,21 @@ describe('create.handler 创建项目', () => {
 
     expect(echo.info.mock.calls.some(c => c[0].includes('svn co'))).toBe(true)
   })
+
+  it('Ctrl+C 取消输入时友好提示且不创建项目', async () => {
+    inquirer.prompt.mockRejectedValue(Object.assign(new Error('User force closed the prompt with SIGINT'), { name: 'ExitPromptError' }))
+
+    await create.handler()
+
+    expect(echo.info).toHaveBeenCalledWith('已取消创建项目')
+    expect(baseData.projects.myproj).toBeUndefined()
+  })
+
+  it('非取消类错误正常抛出', async () => {
+    inquirer.prompt.mockRejectedValue(new Error('boom'))
+
+    await expect(create.handler()).rejects.toThrow('boom')
+  })
 })
 
 describe('create 问答定义', () => {

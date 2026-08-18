@@ -293,6 +293,36 @@ describe('build', () => {
       Object.defineProperty(process, 'platform', desc)
     }
   })
+
+  it('SIGINT 中断时释放锁并退出', async () => {
+    const originalOn = process.on.bind(process)
+    let sigintHandler
+    const onSpy = vi.spyOn(process, 'on').mockImplementation((event, handler) => {
+      if (event === 'SIGINT') {
+        sigintHandler = handler
+
+        return process
+      }
+
+      return originalOn(event, handler)
+    })
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {})
+
+    try {
+      await build.handler({ project: 'proj', user: 'tester' })
+
+      sigintHandler()
+
+      expect(echo.warning).toHaveBeenCalledWith('构建已中断，已释放项目锁')
+      expect(mocks.rm).toHaveBeenCalledWith('-rf', './data/lock')
+      expect(mocks.rm).toHaveBeenCalledWith('-rf', './temp/*')
+      expect(exitSpy).toHaveBeenCalledWith(130)
+    }
+    finally {
+      onSpy.mockRestore()
+      exitSpy.mockRestore()
+    }
+  })
 })
 
 describe('build docker 模式', () => {

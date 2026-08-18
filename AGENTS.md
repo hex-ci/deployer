@@ -55,7 +55,8 @@ cp config-default.js config.js   # 改 sshUser 等
 ## 坑
 
 - `config.js`、`data.json`、整个 `projects/` 目录都在 .gitignore 里——它们是本地运行态数据，不是源码，别当改动提交。
-- build 会在项目 `data/lock` 写当前用户锁定项目；他人 build/部署同项目会被拒绝，别删别人的 lock。
+- build 会在项目 `data/lock` 写当前用户，作为并发互斥锁防止同时构建（他人此时被拒）；锁在 build 结束即自动释放——成功、失败、Ctrl+C 中断都会清，仅 kill -9/断电等强杀可能残留，可手动 `rm data/lock` 兜底。
+- inquirer 14 交互中按 Ctrl+C 会 reject `ExitPromptError`（判断 `error.name === 'ExitPromptError'`，顶层不导出该类、`@inquirer/core` 是子依赖不能直接 import），不 catch 会打印整段堆栈；应捕获后友好提示并干净退出。
 - 回滚依赖 `history/<版本ID>-bak.tgz`，版本 ID 是 build 时的毫秒时间戳；build 输出末尾会提示对应的回滚/部署命令。
 - 主机需有 `rsync`、`tar`、`git`（svn 项目还需 `svn`）；部署通过 `sshUser@host` 走 ssh。
 - `"type": "module"` 下没有 `__dirname`/`require`：取当前文件路径用 `path.dirname(fileURLToPath(import.meta.url))`，读 `package.json`/`data.json` 用 `new URL('../xx.json', import.meta.url)`；`config.js` 本身也必须是 ESM（`export default {…}`），否则 import 会报 `module is not defined`。
