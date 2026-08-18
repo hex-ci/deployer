@@ -7,6 +7,7 @@ Node.js 命令行部署工具（无框架、ESM），在本地对项目执行「
 - Node.js，ESM（`import`/`export`，`package.json` 里 `"type": "module"`；无 TS）
 - 依赖：yargs 18（CLI，`yargs(hideBin(process.argv)).parse()`）、shelljs 0.10（执行 shell）、inquirer 14（`inquirer.prompt()` Promise 化，选择题用 `type: 'select'` 而非 `list`）、chalk 6、lodash 4
 - lint：eslint 10（flat config，`eslint.config.js`）+ `@stylistic/eslint-plugin`
+- 测试：Vitest + @vitest/coverage-v8（`test/**/*.test.js`，`vi.mock` mock shelljs/inquirer/fs 等副作用）；覆盖率门槛 90%（当前 100%）
 - 包管理器：pnpm
 
 ## 目录结构
@@ -14,6 +15,7 @@ Node.js 命令行部署工具（无框架、ESM），在本地对项目执行「
 - `index.js`　CLI 入口，用 yargs 注册 `lib/` 下的子命令
 - `lib/`　每个命令一个文件（create / build / deploy / rollback），统一用命名导出 `export const command`/`describe`/`builder`/`handler`（index.js 以 `import * as` 引入后交给 yargs `.command()`；不是 `export default` 对象）
 - `helper/`　共享工具：echo（彩色输出）、json（读写 data 文件）、snapshot（md5 快照/差异）、exclude-include（rsync 过滤参数）、read-data、template（`{{var}}` 替换）、banner、clear-backup
+- `test/`　Vitest 单元测试，目录结构对齐源码（`helper/` `lib/` `index.test.js`）
 - `config-default.js` → 复制为 `config.js`（本地配置，gitignore）
 - `data.json`　项目注册表（gitignore，create 时写入）
 - `projects/<name>/`　每个项目的工作目录：`repository/`（源码 checkout）、`destination/`（待发布产物）、`history/`（tgz 备份）、`data/`（history.json / snapshot.json / lock）、`temp/`（打包临时目录）
@@ -39,7 +41,7 @@ cp config-default.js config.js   # 改 sshUser 等
 ./index.js create                   # 交互式新建项目并写 data.json
 ```
 
-`pnpm run test` 实际执行 `node index.js`——不是测试套件（本项目无单元测试），无参数运行会因 `demandCommand` 报「请输入有效的命令」。
+`pnpm run test`（Vitest）跑单元测试，`pnpm run test:coverage` 输出覆盖率；`./index.js` 无参数运行会因 `demandCommand` 报「请输入有效的命令」。
 
 ## 约定
 

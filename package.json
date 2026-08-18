@@ -10,7 +10,9 @@
     "url": "git@github.com:hex-ci/deployer.git"
   },
   "scripts": {
-    "test": "node index.js"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "license": "MIT",
   "dependencies": {
@@ -26,7 +28,9 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@stylistic/eslint-plugin": "^5.10.0",
+    "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.8.1",
-    "globals": "^17.11.0"
+    "globals": "^17.11.0",
+    "vitest": "^4.1.10"
   }
 }

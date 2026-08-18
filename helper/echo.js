@@ -1,23 +1,21 @@
 import chalk from 'chalk'
 
-const log = console.log
-
 export default {
   info(msg) {
-    log()
-    log(chalk.cyanBright(msg))
-    log()
+    console.log()
+    console.log(chalk.cyanBright(msg))
+    console.log()
   },
 
   error(msg) {
-    log()
-    log(chalk.redBright(msg))
-    log()
+    console.log()
+    console.log(chalk.redBright(msg))
+    console.log()
   },
 
   warning(msg) {
-    log()
-    log(chalk.yellowBright(msg))
-    log()
+    console.log()
+    console.log(chalk.yellowBright(msg))
+    console.log()
   },
 }
