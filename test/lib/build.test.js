@@ -224,6 +224,27 @@ describe('build', () => {
     expect(env.FORCE_COLOR).toBe(1)
   })
 
+  it('继承运行机环境时剔除 NODE_ENV/CI', async () => {
+    const savedNodeEnv = process.env.NODE_ENV
+    const savedCI = process.env.CI
+    process.env.NODE_ENV = 'production'
+    process.env.CI = 'true'
+
+    try {
+      await build.handler({ project: 'proj', user: 'tester' })
+
+      const env = mocks.spawnSync.mock.calls[0][2].env
+      expect(env.NODE_ENV).toBeUndefined()
+      expect(env.CI).toBeUndefined()
+    }
+    finally {
+      if (savedNodeEnv !== undefined) process.env.NODE_ENV = savedNodeEnv
+      else delete process.env.NODE_ENV
+      if (savedCI !== undefined) process.env.CI = savedCI
+      else delete process.env.CI
+    }
+  })
+
   it('testServers 为空时发布到本地目录', async () => {
     baseData.projects.proj.testServers = []
 
