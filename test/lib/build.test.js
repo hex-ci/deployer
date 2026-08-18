@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   rm: vi.fn(),
   cp: vi.fn(),
   exec: vi.fn(),
+  spawnSync: vi.fn(),
 }))
 
 vi.mock('fs', () => ({
@@ -24,6 +25,7 @@ vi.mock('fs', () => ({
 vi.mock('shelljs', () => ({
   default: { cd: mocks.cd, mkdir: mocks.mkdir, rm: mocks.rm, cp: mocks.cp, exec: mocks.exec },
 }))
+vi.mock('child_process', () => ({ spawnSync: mocks.spawnSync }))
 vi.mock('../../helper/json.js', () => ({ default: { read: vi.fn(), write: vi.fn() } }))
 vi.mock('../../helper/echo.js', () => ({ default: { info: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
 vi.mock('../../helper/snapshot.js', () => ({ default: { make: vi.fn(), check: vi.fn() } }))
@@ -35,7 +37,10 @@ vi.mock('../../helper/clear-backup.js', () => ({ default: vi.fn() }))
 vi.mock('../../helper/read-data.js', () => ({ default: { projects: {} } }))
 vi.mock('../../config.js', () => ({ default: { projectPath: 'projects', sshUser: 'tester', env: {} } }))
 
-const execOk = () => mocks.exec.mockImplementation(() => ({ code: 0, stdout: '', stderr: '' }))
+const execOk = () => {
+  mocks.exec.mockImplementation(() => ({ code: 0, stdout: '', stderr: '' }))
+  mocks.spawnSync.mockImplementation(() => ({ status: 0 }))
+}
 
 const setExists = (map) => {
   mocks.existsSync.mockImplementation(p => p in map ? map[p] : false)
@@ -98,7 +103,7 @@ describe('build', () => {
     // 写 lock、git pull、build.sh、打包/备份/解压、快照、历史
     expect(mocks.writeFileSync).toHaveBeenCalledWith('./data/lock', 'tester')
     expect(mocks.exec).toHaveBeenCalledWith(expect.stringContaining('git pull'))
-    expect(mocks.exec).toHaveBeenCalledWith(expect.stringContaining('bash build.sh foo bar'), expect.any(Object))
+    expect(mocks.spawnSync).toHaveBeenCalledWith('bash', ['build.sh', 'foo', 'bar'], expect.any(Object))
 
     const execCmds = mocks.exec.mock.calls.map(c => c[0])
     expect(execCmds.some(c => c.includes('tar czf ./temp/source.'))).toBe(true)
@@ -163,12 +168,12 @@ describe('build', () => {
 
     await build.handler({ project: 'proj', user: 'tester' })
 
-    expect(mocks.exec.mock.calls.some(c => c[0].includes('bash build.sh'))).toBe(false)
+    expect(mocks.spawnSync).not.toHaveBeenCalled()
     expect(mocks.exec.mock.calls.some(c => c[0].includes('tar czf'))).toBe(true)
   })
 
   it('build.sh 执行失败时报错', async () => {
-    mocks.exec.mockImplementation(cmd => (cmd.includes('bash build.sh') ? { code: 1 } : { code: 0 }))
+    mocks.spawnSync.mockReturnValue({ status: 1 })
 
     await build.handler({ project: 'proj', user: 'tester' })
 
@@ -212,8 +217,7 @@ describe('build', () => {
 
     await build.handler({ project: 'proj', user: 'tester' })
 
-    const buildCall = mocks.exec.mock.calls.find(c => c[0].includes('bash build.sh'))
-    const env = buildCall[1].env
+    const env = mocks.spawnSync.mock.calls[0][2].env
     expect(env.NODE_ENV).toBe('production')
     expect(env.PATH).toContain('/a')
     expect(env.PATH).toContain('/b')
@@ -268,7 +272,7 @@ describe('build', () => {
     try {
       await build.handler({ project: 'proj', user: 'tester' })
 
-      const env = mocks.exec.mock.calls.find(c => c[0].includes('bash build.sh'))[1].env
+      const env = mocks.spawnSync.mock.calls[0][2].env
       expect(env.DEPLOYER_NO_SUCH_ENV_VAR).toBe('/x')
     }
     finally {
@@ -361,10 +365,10 @@ describe('build docker 模式', () => {
 
     await build.handler({ project: 'proj', user: 'tester' })
 
-    const call = mocks.exec.mock.calls.find(c => c[0].includes('bash build.sh'))
+    const call = mocks.spawnSync.mock.calls[0]
     expect(call).toBeTruthy()
-    expect(call[1].env.IMAGE).toBe('harbor.example.com/demo')
-    expect(call[1].env.TAG).toMatch(/^\d+$/)
+    expect(call[2].env.IMAGE).toBe('harbor.example.com/demo')
+    expect(call[2].env.TAG).toMatch(/^\d+$/)
   })
 
   it('docker build 失败时报错', async () => {
@@ -385,7 +389,7 @@ describe('build docker 模式', () => {
 
   it('build.sh 执行失败时报错', async () => {
     setExists({ './repository/build.sh': true })
-    mocks.exec.mockImplementation(cmd => (cmd.includes('bash build.sh') ? { code: 1 } : { code: 0 }))
+    mocks.spawnSync.mockReturnValue({ status: 1 })
 
     await build.handler({ project: 'proj', user: 'tester' })
 
@@ -416,8 +420,7 @@ describe('build docker 模式', () => {
 
     await build.handler({ project: 'proj', user: 'tester' })
 
-    const call = mocks.exec.mock.calls.find(c => c[0].includes('bash build.sh'))
-    const env = call[1].env
+    const env = mocks.spawnSync.mock.calls[0][2].env
     expect(env.PATH).toContain('/a')
     expect(env.NODE_ENV).toBe('production')
     expect(env.IMAGE).toBe('harbor.example.com/demo')
@@ -460,8 +463,7 @@ describe('build docker 模式', () => {
     try {
       await build.handler({ project: 'proj', user: 'tester' })
 
-      const call = mocks.exec.mock.calls.find(c => c[0].includes('bash build.sh'))
-      expect(call[1].env.DEPLOYER_NO_SUCH_VAR).toBe('/x')
+      expect(mocks.spawnSync.mock.calls[0][2].env.DEPLOYER_NO_SUCH_VAR).toBe('/x')
     }
     finally {
       if (saved !== undefined) {

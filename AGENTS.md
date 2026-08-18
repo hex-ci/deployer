@@ -48,6 +48,7 @@ cp config-default.js config.js   # 改 sshUser 等
 ## 约定
 
 - file 项目：`repository/build.sh` 是构建入口，以其所在目录为 cwd 执行；build 的 `[params]` 作为 `$1 $2 $3…` 传入；build.sh 须把产物放进 `distPath`（默认 `dist`）。docker 项目：`repository/Dockerfile` 必有（镜像定义源）；`build.sh` 可选，存在则注入 `IMAGE`/`TAG` 环境变量执行（build.sh 内自己 `docker build -t $IMAGE:$TAG .`），不存在则由工具直接 `docker build`。
+- `build.sh` 通过 `child_process.spawnSync` + `stdio: 'inherit'` 执行，继承交互终端（可交互：pnpm 确认、密码输入等）；环境变量 = 完整 `process.env` + `config.env` 注入 + `FORCE_COLOR=1`（docker 模式额外 `IMAGE`/`TAG`）。
 - 项目名正则 `^[a-z0-9_-]{3,50}$`（create 校验）。
 - `data.json` 项目字段：`name`、`repositoryType`(git|svn)、`deployType`(file|docker，默认 file)、`distPath`、`exclude`/`include`（逗号分隔，存入数组）、`testServers`/`testDeployPath`、`onlineServers`/`onlineDeployPath`、`isFullSync`（true 时 rsync 加 `--delete`）；可选 `backupExpires`、`rollbackCommandTips`/`buildCommandTips`（`{{var}}` 模板）。docker 项目额外字段：`imageName`、`registry`（可空）、`dockerfile`（默认 Dockerfile）、`composeFile`（默认 docker-compose.yml）。
 - 代码风格：2 空格缩进、无分号、单引号、左花括号不换行、else 换行（stroustrup brace-style），由 eslint flat config（`eslint.config.js`）+ `@stylistic/eslint-plugin` 约束；package.json 无 lint script，直接跑 `./node_modules/.bin/eslint`。
