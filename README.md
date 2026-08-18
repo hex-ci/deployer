@@ -1,5 +1,7 @@
 # 轻量级部署工具
 
+[![codecov](https://codecov.io/github/hex-ci/deployer/graph/badge.svg)](https://codecov.io/github/hex-ci/deployer)
+
 基于 Linux 和 Mac 命令行的轻量级部署工具，支持备份、回滚、构建和发布。
 
 ## 安装
