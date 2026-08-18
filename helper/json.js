@@ -1,20 +1,20 @@
-const fs = require('fs');
+import fs from 'fs'
 
-module.exports = {
+export default {
   read(filepath) {
-    let result;
+    let result
 
     try {
-      result = JSON.parse(fs.readFileSync(filepath));
+      result = JSON.parse(fs.readFileSync(filepath))
     }
-    catch (e) {
-      result = {};
+    catch {
+      result = {}
     }
 
-    return result;
+    return result
   },
 
   write(filepath, data) {
-    return fs.writeFileSync(filepath, JSON.stringify(data, null, '  '));
-  }
-};
+    return fs.writeFileSync(filepath, JSON.stringify(data, null, '  '))
+  },
+}

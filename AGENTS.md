@@ -1,17 +1,18 @@
 # deployer 轻量级部署工具
 
-Node.js 命令行部署工具（无框架、CommonJS），在本地对项目执行「构建 → 打包 → 发布/回滚」：从 git/svn 拉源码，执行项目自带的 `build.sh` 产出 `dist`，`tar` 打包 + `rsync` 同步到测试/生产服务器，保留历史版本供回滚。所有用户可见文案为中文。
+Node.js 命令行部署工具（无框架、ESM），在本地对项目执行「构建 → 打包 → 发布/回滚」：从 git/svn 拉源码，执行项目自带的 `build.sh` 产出 `dist`，`tar` 打包 + `rsync` 同步到测试/生产服务器，保留历史版本供回滚。所有用户可见文案为中文。
 
 ## 技术栈
 
-- Node.js，CommonJS（`require`/`module.exports`，无 ESM、无 TS）
-- 依赖：yargs（CLI）、shelljs（执行 shell）、inquirer（交互问答）、chalk、lodash
+- Node.js，ESM（`import`/`export`，`package.json` 里 `"type": "module"`；无 TS）
+- 依赖：yargs 18（CLI，`yargs(hideBin(process.argv)).parse()`）、shelljs 0.10（执行 shell）、inquirer 14（`inquirer.prompt()` Promise 化，选择题用 `type: 'select'` 而非 `list`）、chalk 6、lodash 4
+- lint：eslint 10（flat config，`eslint.config.js`）+ `@stylistic/eslint-plugin`
 - 包管理器：pnpm
 
 ## 目录结构
 
 - `index.js`　CLI 入口，用 yargs 注册 `lib/` 下的子命令
-- `lib/`　每个命令一个文件（create / build / deploy / rollback），统一导出 `{ command, describe, builder, handler }`
+- `lib/`　每个命令一个文件（create / build / deploy / rollback），统一用命名导出 `export const command`/`describe`/`builder`/`handler`（index.js 以 `import * as` 引入后交给 yargs `.command()`；不是 `export default` 对象）
 - `helper/`　共享工具：echo（彩色输出）、json（读写 data 文件）、snapshot（md5 快照/差异）、exclude-include（rsync 过滤参数）、read-data、template（`{{var}}` 替换）、banner、clear-backup
 - `config-default.js` → 复制为 `config.js`（本地配置，gitignore）
 - `data.json`　项目注册表（gitignore，create 时写入）
@@ -45,7 +46,7 @@ cp config-default.js config.js   # 改 sshUser 等
 - 每个项目的 `repository/build.sh` 是构建入口，以其所在目录为 cwd 执行；build 的 `[params]` 作为 `$1 $2 $3…` 传入 build.sh。build.sh 须把产物放进 `distPath`（默认 `dist`）。
 - 项目名正则 `^[a-z0-9_-]{3,50}$`（create 校验）。
 - `data.json` 项目字段：`name`、`repositoryType`(git|svn)、`distPath`、`exclude`/`include`（逗号分隔，存入数组）、`testServers`/`testDeployPath`、`onlineServers`/`onlineDeployPath`、`isFullSync`（true 时 rsync 加 `--delete`）；可选 `backupExpires`、`rollbackCommandTips`/`buildCommandTips`（`{{var}}` 模板）。
-- 代码风格：2 空格缩进、无分号、单引号、左花括号不换行、else 换行（stroustrup brace-style）。eslint4 + babel-eslint（`.eslintrc.js`）已配置但 package.json 无 lint script，可直接跑 `./node_modules/.bin/eslint`。
+- 代码风格：2 空格缩进、无分号、单引号、左花括号不换行、else 换行（stroustrup brace-style），由 eslint flat config（`eslint.config.js`）+ `@stylistic/eslint-plugin` 约束；package.json 无 lint script，直接跑 `./node_modules/.bin/eslint`。
 
 ## 坑
 
@@ -53,3 +54,4 @@ cp config-default.js config.js   # 改 sshUser 等
 - build 会在项目 `data/lock` 写当前用户锁定项目；他人 build/部署同项目会被拒绝，别删别人的 lock。
 - 回滚依赖 `history/<版本ID>-bak.tgz`，版本 ID 是 build 时的毫秒时间戳；build 输出末尾会提示对应的回滚/部署命令。
 - 主机需有 `rsync`、`tar`、`git`（svn 项目还需 `svn`）；部署通过 `sshUser@host` 走 ssh。
+- `"type": "module"` 下没有 `__dirname`/`require`：取当前文件路径用 `path.dirname(fileURLToPath(import.meta.url))`，读 `package.json`/`data.json` 用 `new URL('../xx.json', import.meta.url)`；`config.js` 本身也必须是 ESM（`export default {…}`），否则 import 会报 `module is not defined`。

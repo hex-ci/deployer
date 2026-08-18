@@ -1,23 +1,23 @@
-const chalk = require('chalk');
+import chalk from 'chalk'
 
-const log = console.log;
+const log = console.log
 
-module.exports = {
+export default {
   info(msg) {
-    log();
-    log(chalk.cyanBright(msg));
-    log();
+    log()
+    log(chalk.cyanBright(msg))
+    log()
   },
 
   error(msg) {
-    log();
-    log(chalk.redBright(msg));
-    log();
+    log()
+    log(chalk.redBright(msg))
+    log()
   },
 
   warning(msg) {
-    log();
-    log(chalk.yellowBright(msg));
-    log();
-  }
-};
+    log()
+    log(chalk.yellowBright(msg))
+    log()
+  },
+}

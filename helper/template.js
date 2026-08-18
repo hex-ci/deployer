@@ -1,14 +1,9 @@
 const template = (str, vars) => {
-  for (const key in vars) {
-    if (vars.hasOwnProperty(key)) {
-      const element = vars[key];
-      const reg = new RegExp(`{{${key}}}`, 'g');
-
-      str = str.replace(reg, element);
-    }
+  for (const [key, value] of Object.entries(vars)) {
+    str = str.replaceAll(`{{${key}}}`, value)
   }
 
-  return str;
+  return str
 }
 
-module.exports = template;
+export default template

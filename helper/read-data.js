@@ -1,20 +1,21 @@
-const fs = require('fs');
+import fs from 'fs'
+import { fileURLToPath } from 'url'
 
 // 默认数据结构
 const defaultData = {
-  projects: {}
-};
+  projects: {},
+}
 
-const dataFilename = __dirname + '/../data.json';
+const dataFilename = fileURLToPath(new URL('../data.json', import.meta.url))
 
 if (!fs.existsSync(dataFilename)) {
-  fs.writeFileSync(dataFilename, JSON.stringify(defaultData, null, '  '));
+  fs.writeFileSync(dataFilename, JSON.stringify(defaultData, null, '  '))
 }
 
-const baseData = JSON.parse(fs.readFileSync(dataFilename));
+const baseData = JSON.parse(fs.readFileSync(dataFilename))
 
 if (!baseData.projects) {
-  baseData.projects = {};
+  baseData.projects = {}
 }
 
-module.exports = baseData;
+export default baseData

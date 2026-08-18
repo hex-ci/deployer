@@ -1,9 +1,10 @@
 {
   "name": "deployer",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "轻量级部署工具",
   "author": "Hex <hex@codeigniter.org.cn>",
   "main": "index.js",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git@github.com:hex-ci/deployer.git"
@@ -13,17 +14,19 @@
   },
   "license": "MIT",
   "dependencies": {
-    "chalk": "^2.4.2",
-    "inquirer": "^5.2.0",
-    "lodash": "^4.17.21",
-    "shelljs": "^0.8.5",
-    "yargs": "^11.1.1"
+    "chalk": "^6.0.0",
+    "inquirer": "^14.0.2",
+    "lodash": "^4.18.1",
+    "shelljs": "^0.10.0",
+    "yargs": "^18.1.0"
   },
   "bin": {
     "deployer": "index.js"
   },
   "devDependencies": {
-    "babel-eslint": "^8.2.6",
-    "eslint": "^4.19.1"
+    "@eslint/js": "^10.0.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "eslint": "^10.8.1",
+    "globals": "^17.11.0"
   }
 }

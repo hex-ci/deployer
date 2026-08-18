@@ -1,31 +1,32 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs'
+import path from 'path'
 
 // 默认过期时间
-const defaultExpires = 7;
+const defaultExpires = 7
 
 const clearBackup = (currentPath, expires) => {
   if (!expires) {
-    expires = defaultExpires;
+    expires = defaultExpires
   }
 
-  const now = new Date().getTime();
-  const expiresTimestamp = 1000 * 60 * 60 * 24 * Number(expires);
+  const now = new Date().getTime()
+  const expiresTimestamp = 1000 * 60 * 60 * 24 * Number(expires)
 
   try {
-    const list = fs.readdirSync(currentPath);
+    const list = fs.readdirSync(currentPath)
 
     list.forEach((file) => {
-      const fileTimestamp = Number(file.split('-')[0]);
+      const fileTimestamp = Number(file.split('-')[0])
 
       if (now - fileTimestamp > expiresTimestamp) {
         // 文件过期
-        fs.unlinkSync(path.join(currentPath, file));
+        fs.unlinkSync(path.join(currentPath, file))
       }
-    });
+    })
   }
-  catch (e) {
+  catch {
+    // 目录不存在时忽略
   }
-};
+}
 
-module.exports = clearBackup;
+export default clearBackup
