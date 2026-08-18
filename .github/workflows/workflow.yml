@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20, 22, 24]
+        node-version: [22, 24]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -29,6 +29,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Prepare config
+        run: cp config-default.js config.js
 
       - name: Run tests
         run: pnpm run test:coverage
