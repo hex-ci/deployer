@@ -4,7 +4,7 @@
 
 ## 安装
 
-执行 `npm ci` 安装依赖。
+执行 `pnpm install` 安装依赖。
 
 复制 `config-default.js` 文件为 `config.js` 文件。
 
