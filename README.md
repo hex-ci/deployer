@@ -49,3 +49,15 @@ fi
 
 npm run build
 ```
+
+## Docker 部署
+
+创建项目时选择部署类型 `docker`（默认 `file`），即可用镜像部署替代文件同步。
+
+docker 项目要求 `Dockerfile`（镜像定义源，必有）；可选 `docker-compose.yml` 定义容器如何运行，test/online 跑法不同时分别放 `docker-compose.test.yml` / `docker-compose.online.yml`。
+
+- 构建：`./index.js build <项目>` 执行 `docker build` 并推送到镜像仓库；有 `build.sh` 时注入 `IMAGE`/`TAG` 环境变量交给用户自定义构建。
+- 部署：`./index.js deploy <项目>` 在目标服务器 `docker pull` 同一镜像并用 compose 起容器。
+- 回滚：`./index.js rollback <项目> <版本ID>` 用旧版本 tag 重新拉起容器。
+
+镜像 tag 就是构建时的版本 ID，registry 里的历史 tag 永久保留用于回滚；只清理服务器本地悬空镜像。镜像仓库认证通过运行机上的 `docker login` 预置授权，工具不记录密码。

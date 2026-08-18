@@ -294,3 +294,149 @@ describe('build', () => {
     }
   })
 })
+
+describe('build docker 模式', () => {
+  beforeEach(() => {
+    baseData.projects.proj = {
+      name: 'proj',
+      repositoryType: 'git',
+      deployType: 'docker',
+      imageName: 'demo',
+      registry: 'harbor.example.com',
+      dockerfile: 'Dockerfile',
+      composeFile: 'docker-compose.yml',
+      testServers: ['1.2.3.4'],
+      testDeployPath: '/srv/test',
+      onlineServers: [],
+      onlineDeployPath: '',
+    }
+    setExists({})
+  })
+
+  it('无 build.sh：docker build + push + 部署回归机', async () => {
+    await build.handler({ project: 'proj', user: 'tester' })
+
+    const cmds = mocks.exec.mock.calls.map(c => c[0])
+
+    expect(cmds.some(c => c.startsWith('docker build -t harbor.example.com/demo:') && c.includes(' -f Dockerfile .'))).toBe(true)
+    expect(cmds.some(c => c.startsWith('docker push harbor.example.com/demo:'))).toBe(true)
+    expect(cmds.some(c => c === 'rsync -azh ./repository/docker-compose.yml tester@1.2.3.4:/srv/test/')).toBe(true)
+    expect(cmds.some(c => c.startsWith(`ssh tester@1.2.3.4 'docker pull harbor.example.com/demo:`))).toBe(true)
+    expect(cmds.some(c => c.includes('docker image prune -f'))).toBe(true)
+    expect(json.write.mock.calls.some(c => c[0] === './data/history.json')).toBe(true)
+  })
+
+  it('有 build.sh：注入 IMAGE/TAG 并执行', async () => {
+    setExists({ './repository/build.sh': true })
+
+    await build.handler({ project: 'proj', user: 'tester' })
+
+    const call = mocks.exec.mock.calls.find(c => c[0].includes('bash build.sh'))
+    expect(call).toBeTruthy()
+    expect(call[1].env.IMAGE).toBe('harbor.example.com/demo')
+    expect(call[1].env.TAG).toMatch(/^\d+$/)
+  })
+
+  it('docker build 失败时报错', async () => {
+    mocks.exec.mockImplementation(cmd => (cmd.includes('docker build') ? { code: 1 } : { code: 0 }))
+
+    await build.handler({ project: 'proj', user: 'tester' })
+
+    expect(echo.error).toHaveBeenCalledWith('构建镜像失败！')
+  })
+
+  it('docker push 失败时报错', async () => {
+    mocks.exec.mockImplementation(cmd => (cmd.includes('docker push') ? { code: 1 } : { code: 0 }))
+
+    await build.handler({ project: 'proj', user: 'tester' })
+
+    expect(echo.error).toHaveBeenCalledWith('推送镜像失败！')
+  })
+
+  it('build.sh 执行失败时报错', async () => {
+    setExists({ './repository/build.sh': true })
+    mocks.exec.mockImplementation(cmd => (cmd.includes('bash build.sh') ? { code: 1 } : { code: 0 }))
+
+    await build.handler({ project: 'proj', user: 'tester' })
+
+    expect(echo.error).toHaveBeenCalledWith('执行 build.sh 脚本失败！')
+  })
+
+  it('存在 docker-compose.test.yml 时优先用环境变体', async () => {
+    setExists({ './repository/docker-compose.test.yml': true })
+
+    await build.handler({ project: 'proj', user: 'tester' })
+
+    expect(mocks.exec.mock.calls.some(c => c[0] === 'rsync -azh ./repository/docker-compose.test.yml tester@1.2.3.4:/srv/test/')).toBe(true)
+  })
+
+  it('testServers 为空时本地部署', async () => {
+    baseData.projects.proj.testServers = []
+
+    await build.handler({ project: 'proj', user: 'tester' })
+
+    const cmds = mocks.exec.mock.calls.map(c => c[0])
+    expect(cmds.some(c => c === 'rsync -azh ./repository/docker-compose.yml /srv/test/')).toBe(true)
+    expect(cmds.some(c => c.includes('docker compose -f docker-compose.yml up -d') && !c.startsWith('ssh '))).toBe(true)
+  })
+
+  it('build.sh 模式 config.env 注入额外变量', async () => {
+    setExists({ './repository/build.sh': true })
+    config.env = { path: ['/a', '/b'], node_env: 'production' }
+
+    await build.handler({ project: 'proj', user: 'tester' })
+
+    const call = mocks.exec.mock.calls.find(c => c[0].includes('bash build.sh'))
+    const env = call[1].env
+    expect(env.PATH).toContain('/a')
+    expect(env.NODE_ENV).toBe('production')
+    expect(env.IMAGE).toBe('harbor.example.com/demo')
+  })
+
+  it('设置了 tips 模板时做替换', async () => {
+    baseData.projects.proj.rollbackCommandTips = 'rollback {{project}} {{versionId}}'
+    baseData.projects.proj.buildCommandTips = 'deploy {{project}}'
+
+    await build.handler({ project: 'proj', user: 'tester' })
+
+    const msgs = echo.info.mock.calls.map(c => c[0])
+    expect(msgs.some(m => m.includes('rollback proj'))).toBe(true)
+    expect(msgs.some(m => m.includes('deploy proj'))).toBe(true)
+  })
+
+  it('dockerfile 未配置时用默认 Dockerfile', async () => {
+    baseData.projects.proj.dockerfile = undefined
+
+    await build.handler({ project: 'proj', user: 'tester' })
+
+    expect(mocks.exec.mock.calls.some(c => c[0].includes(' -f Dockerfile .'))).toBe(true)
+  })
+
+  it('composeFile 未配置时用默认 docker-compose.yml', async () => {
+    baseData.projects.proj.composeFile = undefined
+
+    await build.handler({ project: 'proj', user: 'tester' })
+
+    expect(mocks.exec.mock.calls.some(c => c[0] === 'rsync -azh ./repository/docker-compose.yml tester@1.2.3.4:/srv/test/')).toBe(true)
+  })
+
+  it('数组 env 项且对应环境变量不存在时不追加旧值', async () => {
+    setExists({ './repository/build.sh': true })
+    const key = 'DEPLOYER_NO_SUCH_VAR'
+    const saved = process.env[key]
+    delete process.env[key]
+    config.env = { deployer_no_such_var: ['/x'] }
+
+    try {
+      await build.handler({ project: 'proj', user: 'tester' })
+
+      const call = mocks.exec.mock.calls.find(c => c[0].includes('bash build.sh'))
+      expect(call[1].env.DEPLOYER_NO_SUCH_VAR).toBe('/x')
+    }
+    finally {
+      if (saved !== undefined) {
+        process.env[key] = saved
+      }
+    }
+  })
+})

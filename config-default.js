@@ -9,4 +9,10 @@ export default {
   env: {
     path: [],
   },
+
+  // docker 镜像仓库全局默认配置（可选）
+  docker: {
+    // 默认镜像仓库地址，项目未单独配置 registry 时使用；留空则 imageName 需写全路径
+    registry: '',
+  },
 }

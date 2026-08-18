@@ -4,8 +4,11 @@ import echo from '../../helper/echo.js'
 import excludeInclude from '../../helper/exclude-include.js'
 import banner from '../../helper/banner.js'
 import baseData from '../../helper/read-data.js'
+import fs from 'fs'
+import json from '../../helper/json.js'
 import * as deploy from '../../lib/deploy.js'
 
+vi.mock('fs', () => ({ default: { existsSync: vi.fn() } }))
 vi.mock('shelljs', () => ({
   default: { cd: vi.fn(), mkdir: vi.fn(), rm: vi.fn(), cp: vi.fn(), exec: vi.fn() },
 }))
@@ -13,6 +16,7 @@ vi.mock('../../helper/echo.js', () => ({ default: { info: vi.fn(), error: vi.fn(
 vi.mock('../../helper/exclude-include.js', () => ({
   default: { get: vi.fn(() => ({ include: '--include="x"', exclude: '--exclude="y"' })) },
 }))
+vi.mock('../../helper/json.js', () => ({ default: { read: vi.fn() } }))
 vi.mock('../../helper/banner.js', () => ({ default: vi.fn() }))
 vi.mock('../../helper/read-data.js', () => ({ default: { projects: {} } }))
 vi.mock('../../config.js', () => ({ default: { projectPath: 'projects', sshUser: 'tester', env: {} } }))
@@ -69,5 +73,68 @@ describe('deploy', () => {
     deploy.handler({ project: 'proj' })
 
     expect(shell.exec.mock.calls[0][0]).not.toContain('--delete')
+  })
+})
+
+describe('deploy docker 模式', () => {
+  beforeEach(() => {
+    baseData.projects.proj = {
+      name: 'proj',
+      deployType: 'docker',
+      imageName: 'demo',
+      registry: 'harbor.example.com',
+      composeFile: 'docker-compose.yml',
+      onlineServers: ['1.2.3.4'],
+      onlineDeployPath: '/srv/app',
+    }
+  })
+
+  it('从 history 取最近版本部署到生产', () => {
+    fs.existsSync.mockImplementation(p => p === './data/history.json')
+    json.read.mockReturnValue([{ tag: '12345' }])
+
+    deploy.handler({ project: 'proj' })
+
+    const cmds = shell.exec.mock.calls.map(c => c[0])
+    expect(cmds.some(c => c === 'rsync -azh ./repository/docker-compose.yml tester@1.2.3.4:/srv/app/')).toBe(true)
+    expect(cmds.some(c => c.startsWith(`ssh tester@1.2.3.4 'docker pull harbor.example.com/demo:12345`))).toBe(true)
+    expect(cmds.some(c => c.includes('docker image prune -f'))).toBe(true)
+  })
+
+  it('未构建镜像时报错', () => {
+    fs.existsSync.mockReturnValue(false)
+
+    deploy.handler({ project: 'proj' })
+
+    expect(echo.error).toHaveBeenCalledWith('尚未构建镜像，请先执行 build 命令')
+    expect(shell.exec).not.toHaveBeenCalled()
+  })
+
+  it('存在 docker-compose.online.yml 时优先用环境变体', () => {
+    fs.existsSync.mockImplementation(p => p === './data/history.json' || p === './repository/docker-compose.online.yml')
+    json.read.mockReturnValue([{ tag: '12345' }])
+
+    deploy.handler({ project: 'proj' })
+
+    expect(shell.exec.mock.calls.some(c => c[0] === 'rsync -azh ./repository/docker-compose.online.yml tester@1.2.3.4:/srv/app/')).toBe(true)
+  })
+
+  it('history 存在但为空数组时视为未构建', () => {
+    fs.existsSync.mockReturnValue(true)
+    json.read.mockReturnValue([])
+
+    deploy.handler({ project: 'proj' })
+
+    expect(echo.error).toHaveBeenCalledWith('尚未构建镜像，请先执行 build 命令')
+  })
+
+  it('composeFile 未配置时用默认值', () => {
+    fs.existsSync.mockImplementation(p => p === './data/history.json')
+    json.read.mockReturnValue([{ tag: '12345' }])
+    baseData.projects.proj.composeFile = undefined
+
+    deploy.handler({ project: 'proj' })
+
+    expect(shell.exec.mock.calls.some(c => c[0] === 'rsync -azh ./repository/docker-compose.yml tester@1.2.3.4:/srv/app/')).toBe(true)
   })
 })

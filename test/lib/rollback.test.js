@@ -89,3 +89,52 @@ describe('rollback', () => {
     expect(shell.exec.mock.calls.find(c => c[0].includes('rsync'))[0]).toContain('--delete')
   })
 })
+
+describe('rollback docker 模式', () => {
+  beforeEach(() => {
+    baseData.projects.proj = {
+      name: 'proj',
+      deployType: 'docker',
+      imageName: 'demo',
+      registry: 'harbor.example.com',
+      composeFile: 'docker-compose.yml',
+      testServers: ['1.2.3.4'],
+      testDeployPath: '/srv/test',
+    }
+    fs.existsSync.mockReturnValue(false)
+  })
+
+  it('用指定版本 tag 回滚到回归机', () => {
+    rollback.handler({ project: 'proj', versionId: '999' })
+
+    const cmds = shell.exec.mock.calls.map(c => c[0])
+    expect(cmds.some(c => c === 'rsync -azh ./repository/docker-compose.yml tester@1.2.3.4:/srv/test/')).toBe(true)
+    expect(cmds.some(c => c.startsWith(`ssh tester@1.2.3.4 'docker pull harbor.example.com/demo:999`))).toBe(true)
+  })
+
+  it('testServers 为空时本地回滚', () => {
+    baseData.projects.proj.testServers = []
+
+    rollback.handler({ project: 'proj', versionId: '999' })
+
+    const cmds = shell.exec.mock.calls.map(c => c[0])
+    expect(cmds.some(c => c === 'rsync -azh ./repository/docker-compose.yml /srv/test/')).toBe(true)
+    expect(cmds.some(c => c.includes('docker compose -f docker-compose.yml up -d') && !c.startsWith('ssh '))).toBe(true)
+  })
+
+  it('存在 docker-compose.test.yml 时优先用环境变体', () => {
+    fs.existsSync.mockImplementation(p => p === './repository/docker-compose.test.yml')
+
+    rollback.handler({ project: 'proj', versionId: '999' })
+
+    expect(shell.exec.mock.calls.some(c => c[0] === 'rsync -azh ./repository/docker-compose.test.yml tester@1.2.3.4:/srv/test/')).toBe(true)
+  })
+
+  it('composeFile 未配置时用默认值', () => {
+    baseData.projects.proj.composeFile = undefined
+
+    rollback.handler({ project: 'proj', versionId: '999' })
+
+    expect(shell.exec.mock.calls.some(c => c[0] === 'rsync -azh ./repository/docker-compose.yml tester@1.2.3.4:/srv/test/')).toBe(true)
+  })
+})
